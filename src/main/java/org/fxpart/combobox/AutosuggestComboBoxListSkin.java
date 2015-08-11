@@ -5,6 +5,7 @@ import com.sun.javafx.scene.control.behavior.KeyBinding;
 import com.sun.javafx.scene.control.skin.BehaviorSkinBase;
 import javafx.beans.property.DoubleProperty;
 import javafx.beans.property.SimpleDoubleProperty;
+import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.event.Event;
 import javafx.event.EventHandler;
@@ -22,12 +23,15 @@ import javafx.scene.layout.HBox;
 import javafx.scene.text.Text;
 import javafx.util.Callback;
 import javafx.util.StringConverter;
+import org.fxpart.mockserver.MockDatas;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.List;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 /**
  * Created by metairie on 07-Jul-15.
@@ -61,7 +65,7 @@ public class AutosuggestComboBoxListSkin<T extends KeyValue> extends BehaviorSki
 
     // data
     private final AutosuggestComboBoxList<T> control;
-    private final ObservableList<T> items;
+    private ObservableList<T> items;
     private String columnSeparator = "|";
     private String keyValueSeparator = " - ";
 
@@ -151,30 +155,72 @@ public class AutosuggestComboBoxListSkin<T extends KeyValue> extends BehaviorSki
 
     private void bind() {
         button.textProperty().bind(combo.getEditor().textProperty());
+        List<T> list = (List<T>) new MockDatas().loadLocation();
+        items = FXCollections.observableList(list);
     }
 
     private EventHandler<KeyEvent> createKeyReleaseEventHandler() {
-        return event -> {
-            if (DOWN.match(event)) {
-                if (!combo.isShowing()) {
+        return new EventHandler<KeyEvent>() {
+
+            private boolean moveCaretToPos = false;
+            private int caretPos;
+
+            @Override
+            public void handle(KeyEvent event) {
+                if (event.getCode() == KeyCode.UP) {
+                    caretPos = -1;
+                    moveCaret(combo.getEditor().getText().length());
+                    return;
+                } else if (event.getCode() == KeyCode.DOWN) {
+                    if (!combo.isShowing()) {
+                        combo.show();
+                    }
+                    caretPos = -1;
+                    moveCaret(combo.getEditor().getText().length());
+                    return;
+                } else if (event.getCode() == KeyCode.BACK_SPACE) {
+                    moveCaretToPos = true;
+                    caretPos = combo.getEditor().getCaretPosition();
+                } else if (event.getCode() == KeyCode.DELETE) {
+                    moveCaretToPos = true;
+                    caretPos = combo.getEditor().getCaretPosition();
+                }
+
+                if (event.getCode() == KeyCode.RIGHT || event.getCode() == KeyCode.LEFT
+                        || event.isControlDown() || event.getCode() == KeyCode.HOME
+                        || event.getCode() == KeyCode.END || event.getCode() == KeyCode.TAB) {
+                    return;
+                }
+
+                String t = combo.getEditor().getText();
+                ObservableList<T> list = FXCollections.observableArrayList(items);
+                list.stream().filter(item -> item.getValue().toString().contains(t)).collect(Collectors.toList());
+                combo.setItems(list);
+                combo.getEditor().setText(t);
+                if (!moveCaretToPos) {
+                    caretPos = -1;
+                }
+                moveCaret(t.length());
+
+                if (!list.isEmpty()) {
                     combo.show();
                 }
-                return;
-            } else if (UP.match(event) || RIGHT.match(event) || LEFT.match(event) || HOME.match(event) || END.match(event) || TAB.match(event) || event.isControlDown()) {
-                return;
+
             }
 
-            // search if possible
-            if (combo.visibleProperty().getValue()) {
-                // TODO REMOVE
-                if (combo.getSelectionModel().isEmpty()) {
-
+            private void moveCaret(int textLength) {
+                if (caretPos == -1) {
+                    combo.getEditor().positionCaret(textLength);
+                } else {
+                    combo.getEditor().positionCaret(caretPos);
                 }
-
-                reSchedule(event);
+                moveCaretToPos = false;
             }
         };
+
+
     }
+
 
     private void setTextFieldFormatter(Function<T, String> textFieldFormatter) {
         combo.setConverter(new StringConverter<T>() {

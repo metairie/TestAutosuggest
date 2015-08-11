@@ -11,7 +11,6 @@ import javafx.event.EventType;
 import javafx.scene.Node;
 import javafx.scene.control.Skin;
 import javafx.scene.input.KeyEvent;
-import org.fxpart.version.Version;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -85,7 +84,6 @@ public class AutosuggestComboBoxList<T extends KeyValue> extends AutosuggestCont
      */
     public AutosuggestComboBoxList() {
         this(null);
-        Version.getInstance();
     }
 
     /**
